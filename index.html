@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مساعد الأنشطة الذكي - الدراسات الاجتماعية (المنهج العماني)</title>
+    <!-- مكتبة Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- خط Cairo -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <!-- ربط ملف الـ CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-amber-50/50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- رأس الصفحة -->
+    <header class="bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-lg py-5 px-6 rounded-b-3xl mb-6">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <span class="text-4xl animate-bounce">🌟</span>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-black">مساعد الأنشطة الذكي 🇴🇲</h1>
+                    <p class="text-teal-100 text-xs font-semibold mt-0.5">مادة الدراسات الاجتماعية • المنهج العماني (الصفوف 5 - 10)</p>
+                </div>
+            </div>
+            <div class="bg-white/20 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-white/30 shadow-sm">
+                ✨ قاعدة بيانات شاملة للدروس والمشاريع
+            </div>
+        </div>
+    </header>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="container mx-auto px-4 flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6 pb-8">
+        
+        <!-- قسم الشات -->
+        <section class="lg:col-span-4 bg-white rounded-3xl shadow-xl shadow-teal-900/5 border-2 border-teal-100 flex flex-col h-[680px] overflow-hidden">
+            <div class="p-4 bg-teal-50 border-b border-teal-100 flex items-center gap-2">
+                <span class="text-lg">💬</span>
+                <h2 class="font-black text-teal-900 text-sm">محادثة مساعد الأنشطة الذكي</h2>
+            </div>
+            
+            <!-- صندوق الرسائل -->
+            <div id="chatMessages" class="flex-grow p-4 overflow-y-auto space-y-4 text-sm">
+                <div class="flex items-start gap-2.5">
+                    <div class="bg-teal-600 text-white w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 font-black text-sm shadow-md shadow-teal-600/20">🤖</div>
+                    <div class="bg-teal-50 p-4 rounded-2xl rounded-tr-none text-teal-950 max-w-[85%] leading-relaxed border border-teal-100/60 font-medium">
+                        أهلاً بك يا معلمنا الفاضل! 📚 اكتب اسم الدرس أو الصف (مثال: <span class="text-teal-700 font-bold">"الصف الثامن الأفلاج"</span>، <span class="text-teal-700 font-bold">"الصف العاشر رؤية عمان"</span>، أو <span class="text-teal-700 font-bold">"الصف السادس المناخ"</span>)، وسأعرض لك ورقة المشروع والخطوات التفصيلية فوراً.
+                    </div>
+                </div>
+            </div>
+
+            <!-- إدخال رسالة المعلم -->
+            <div class="p-4 border-t border-teal-50 bg-white flex gap-2">
+                <input type="text" id="userInput" placeholder="اكتب اسم الدرس أو الصف هنا... ✨" class="flex-grow bg-slate-50 border-2 border-slate-200 rounded-2xl px-4 py-3 text-sm focus:border-teal-500 focus:bg-white focus:outline-none transition">
+                <button id="sendBtn" class="bg-teal-600 hover:bg-teal-700 text-white px-5 py-3 rounded-2xl font-black transition shadow-lg shadow-teal-600/30 flex items-center justify-center">
+                    بحث 🚀
+                </button>
+            </div>
+        </section>
+
+        <!-- قسم عرض ورقة النشاط والمشروع التفصيلي -->
+        <section class="lg:col-span-8 bg-white rounded-3xl shadow-xl shadow-teal-900/5 border-2 border-teal-100 p-6 md:p-8 flex flex-col justify-between overflow-y-auto">
+            <div id="activityCard" class="space-y-6">
+                <!-- حالة فارغة -->
+                <div id="emptyState" class="h-full flex flex-col items-center justify-center text-center py-40 text-slate-400">
+                    <span class="text-6xl mb-3 animate-pulse">🎨</span>
+                    <p class="text-base font-bold text-slate-600">ورقة النشاط تنتظر بحثك!</p>
+                    <p class="text-xs mt-1 text-slate-400">اختر الصف أو اكتب اسم الدرس في المحادثة لعرض الدليل الشامل.</p>
+                </div>
+
+                <!-- لوحة ورقة العمل البصرية (تظهر بعد البحث) -->
+                <div id="activityContent" class="hidden space-y-6 bg-gradient-to-b from-teal-50/40 via-sky-50/20 to-amber-50/30 p-6 rounded-3xl border-2 border-teal-200/50 relative">
+                    
+                    <!-- ترويسة ورقة العمل -->
+                    <div class="border-b-2 border-dashed border-teal-200 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <div>
+                            <span id="cardBadge" class="bg-teal-600 text-white text-xs font-black px-3 py-1.5 rounded-xl shadow-sm inline-block"></span>
+                            <h2 id="cardTitle" class="text-xl md:text-2xl font-black text-slate-900 mt-2"></h2>
+                        </div>
+                        <button onclick="window.print()" class="bg-white hover:bg-teal-50 text-teal-700 px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-md shadow-teal-900/5 border border-teal-200 flex items-center gap-1.5 shrink-0">
+                            🖨️ طباعة دليل المشروع
+                        </button>
+                    </div>
+
+                    <!-- صندوق الشخصية وصورة النشاط -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-white p-4 rounded-2xl shadow-sm border border-teal-100">
+                        <div class="md:col-span-4 flex flex-col items-center justify-center bg-teal-50/80 p-4 rounded-2xl border border-teal-100 text-center">
+                            <div id="cardCharacter" class="text-6xl mb-2 animate-bounce">🎓</div>
+                            <span id="characterTitle" class="text-xs font-black text-teal-900 mt-1">قائد المشروع</span>
+                            <span id="characterHint" class="text-[10px] text-teal-600 font-bold mt-0.5">جاهز للتنفيذ الميداني!</span>
+                        </div>
+                        <div class="md:col-span-8 relative rounded-2xl overflow-hidden shadow-md h-40 bg-slate-100 border-2 border-white">
+                            <img id="cardImage" src="" alt="صورة توضيحية للمشروع" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-3.5">
+                                <p id="imageCaption" class="text-white text-xs font-black shadow-text"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- الهدف الإستراتيجي للمشروع -->
+                    <div class="bg-white p-4 rounded-2xl border border-sky-100 shadow-sm">
+                        <h4 class="font-black text-sky-900 mb-1.5 text-xs flex items-center gap-1.5">💡 الهدف الإستراتيجي للدرس:</h4>
+                        <p id="cardDescription" class="text-xs text-slate-700 leading-relaxed font-medium"></p>
+                    </div>
+
+                    <!-- خطوة بخطوة -->
+                    <div class="bg-white p-5 rounded-2xl border-2 border-teal-300 shadow-sm relative pt-6">
+                        <div class="absolute -top-3.5 right-5 bg-teal-600 text-white text-xs font-black px-4 py-1 rounded-xl shadow-md">
+                            🛠️ خطوات تنفيذ المشروع بالتفصيل
+                        </div>
+                        <div id="cardProjectSteps" class="space-y-3 mt-2"></div>
+                    </div>
+
+                    <!-- أدوار الطلاب والتقويم -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white p-4 rounded-2xl border-2 border-amber-200 shadow-sm relative pt-6">
+                            <div class="absolute -top-3.5 right-5 bg-amber-500 text-white text-xs font-black px-4 py-1 rounded-xl shadow-md">
+                                🎈 تقسيم أدوار مجموعات الطلاب
+                            </div>
+                            <p id="cardStudentRole" class="text-xs text-slate-700 leading-relaxed font-medium mt-1"></p>
+                        </div>
+
+                        <div class="bg-white p-4 rounded-2xl border-2 border-rose-200 shadow-sm relative pt-6">
+                            <div class="absolute -top-3.5 right-5 bg-rose-500 text-white text-xs font-black px-4 py-1 rounded-xl shadow-md">
+                                ⭐ أداة تقويم وتدقيق الإنجاز
+                            </div>
+                            <p id="cardAssessment" class="text-xs text-slate-700 leading-relaxed font-medium mt-1"></p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-400 font-bold">
+                منصة مساعد الأنشطة الذكي • مادة الدراسات الاجتماعية • سلطنة عمان &copy; 2026
+            </div>
+        </section>
+    </main>
+
+    <!-- ربط الـ JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>

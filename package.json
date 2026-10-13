@@ -1,0 +1,14 @@
+{
+  "name": "omani-social-studies-assistant",
+  "version": "1.0.0",
+  "description": "مساعد الدراسات الاجتماعية - المنهج العماني",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/genai": "^2.28.0",
+    "@google/generative-ai": "^0.24.1",
+    "express": "^4.19.2"
+  }
+}
