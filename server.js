@@ -14,7 +14,7 @@ if (!process.env.GEMINI_API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// النماذج بالترتيب: إذا فشل الأول ينتقل للتالي
+// النماذج بالترتيب: إذا فشل الأول ينتقل للتالي (لكل نموذج حصة يومية منفصلة)
 const MODELS = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.1-flash-lite'];
 
 // ذاكرة مؤقتة لعدم استهلاك الطلبات بلا داعٍ
@@ -44,6 +44,42 @@ async function generateWithFallback(prompt) {
     throw lastErr;
 }
 
+// التأكد من أن الاستجابة تحتوي على كل الحقول بالشكل الصحيح
+function normalize(d) {
+    const str = (v, fallback = '') => (typeof v === 'string' && v.trim() ? v.trim() : fallback);
+    const arr = (v) => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()) : []);
+    const num = (v, min, max, fallback) => {
+        const n = parseInt(v, 10);
+        return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+    };
+
+    return {
+        title: str(d.title, 'ورقة عمل'),
+        grade: str(d.grade),
+        branch: str(d.branch),
+        iconsStart: str(d.iconsStart, '📚'),
+        iconsEnd: str(d.iconsEnd, '🇴🇲'),
+        passage: arr(d.passage),
+        think: {
+            instruction: str(d.think && d.think.instruction, 'بشكل فردي، اقرأ النص واستخرج أكبر عدد ممكن من الاستنتاجات.'),
+            count: num(d.think && d.think.count, 2, 5, 3)
+        },
+        pair: {
+            instruction: str(d.pair && d.pair.instruction, 'تعاون مع زميلك، وقارنا استنتاجاتكما، ثم اتفقا على أهم الاستنتاجات.'),
+            rows: num(d.pair && d.pair.rows, 2, 6, 4)
+        },
+        share: {
+            instruction: str(d.share && d.share.instruction, 'تجتمع كل مجموعة مع بقية المجموعات، وتعرض استنتاجاتها، ثم تناقش الصف.'),
+            questions: arr(d.share && d.share.questions)
+        },
+        challenge: {
+            instruction: str(d.challenge && d.challenge.instruction),
+            starter: str(d.challenge && d.challenge.starter)
+        },
+        teacherRole: str(d.teacherRole)
+    };
+}
+
 app.post('/api/generate-activity', async (req, res) => {
     try {
         const userQuery = (req.body.query || 'الصف الثامن').trim();
@@ -56,38 +92,46 @@ app.post('/api/generate-activity', async (req, res) => {
             return res.json(cache.get(userQuery));
         }
 
-        // التوجيه المحدث والمخصص ليشمل جميع الصفوف العمانية (من 5 إلى 12) بدقة عالية ونمط تفاعلي
-        const prompt = `أنت خبير ومستشار تربوي لمناهج الدراسات الاجتماعية في سلطنة عمان (لجميع الصفوف الدراسية من الخامس وحتى الثاني عشر، بما فيها مواد الجغرافيا، التاريخ، والدراسات العالمية الحديثة). 
-        بناءً على طلب المعلم: "${userQuery}", قم بتوليد ورقة عمل ومشروع تفصيلي غني يناسب المنهج العماني بدقة.
-        
-        اجعل محتوى النشاط احترافياً ويشبه أوراق العمل التفاعلية المتقدمة (مثل استراتيجيات: فكر وزاوج وشارك، التحليل الجغرافي أو التاريخي، قراءة النصوص والخرائط، واستنتاج العلاقات).
-        
-        أجب بصيغة JSON صحيحة تماماً وباللغة العربية بدون أي رموز Markdown إضافية، وتحتوي حصرياً على البنية التالية:
-        {
-          "title": "عنوان الدرس أو المشروع بدقة للمنهج العماني",
-          "grade": "الصف الدراسي (مثل: الصف الحادي عشر / الصف الثاني عشر / ...)",
-          "branch": "الفرع (جغرافيا، تاريخ، تراث، مؤسسات، إلخ)",
-          "character": "🎓",
-          "characterTitle": "قائد النشاط الميداني",
-          "characterHint": "جاهز للتنفيذ والتحليل",
-          "image": "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=500",
-          "imageCaption": "تعليق توضيحي يربط الدرس ببيئة سلطنة عمان",
-          "description": "الهدف الاستراتيجي أو فكرة النص والتحليل الأساسية للدرس",
-          "detailedSteps": [
-            { "stage": "المرحلة الأولى: التحليل والاستنتاج", "detail": "تفاصيل الخطوة بناءً على قراءة النصوص أو الخرائط" },
-            { "stage": "المرحلة الثانية: العمل الجماعي (فكر - زاوج - شارك)", "detail": "تفاصيل النقاش ومقارنة الاستنتاجات بين الطلاب" },
-            { "stage": "المرحلة الثالثة: مهمة التحدي", "detail": "سؤال ختامي يقيس العمق المعرفي وربط المفهوم بالواقع العماني" }
-          ],
-          "studentRole": "تقسيم أدوار الطلاب وتوزيع المهام البحثية والتحليلية",
-          "assessment": "أداة التقويم وتدقيق الإنجاز (بما فيها معايير تقييم الاستنتاجات)"
-        }`;
+        const prompt = `أنت خبير ومستشار تربوي لمناهج الدراسات الاجتماعية في سلطنة عمان (الصفوف من الخامس إلى الثاني عشر: جغرافيا، تاريخ، ودراسات عالمية).
+بناءً على طلب المعلم: "${userQuery}"، أنشئ ورقة عمل تفاعلية على نمط "فكر - زاوج - شارك" تشبه أوراق العمل المصورة (إنفوجرافيك) في المنهج العماني.
+
+القواعد:
+- اكتب نصاً قصيراً (فقرتان إلى ثلاث، كل فقرة 3 إلى 5 جمل) مبسطاً ومناسباً لمستوى الصف ويرتبط بسلطنة عمان.
+- اعتمد على معلومات دقيقة ومعروفة فقط، ولا تخترع أرقاماً أو أسماء غير مؤكدة.
+- الأسئلة الموجهة للمجموعات (من 5 إلى 7 أسئلة) يجب أن تتدرج من الاستنتاج البسيط إلى التحليل والربط.
+- "iconsStart" و"iconsEnd" رمزان تعبيريان (إيموجي) مناسبان لموضوع الدرس (رمز أو رمزان لكل منهما).
+- أجب بصيغة JSON صحيحة تماماً وباللغة العربية فقط، بدون أي رموز Markdown، وبهذه البنية حصراً:
+
+{
+  "title": "عنوان الدرس",
+  "grade": "الصف الدراسي",
+  "branch": "الفرع (جغرافيا / تاريخ / ...)",
+  "iconsStart": "☀️🏜️",
+  "iconsEnd": "🌧️⛰️",
+  "passage": ["الفقرة الأولى من النص", "الفقرة الثانية من النص"],
+  "think": { "instruction": "تعليمات فقرة (فكر) الفردية", "count": 3 },
+  "pair": { "instruction": "تعليمات فقرة (زاوج) مع الزميل", "rows": 4 },
+  "share": {
+    "instruction": "تعليمات فقرة (شارك) مع المجموعات",
+    "questions": ["سؤال 1", "سؤال 2", "سؤال 3", "سؤال 4", "سؤال 5"]
+  },
+  "challenge": {
+    "instruction": "نص مهمة التحدي (استنتج في جملة واحدة ...)",
+    "starter": "بداية جملة يكملها الطالب، مثل: مناخ سلطنة عمان يتميز بـ"
+  },
+  "teacherRole": "دور المعلم في هذا النشاط"
+}`;
 
         const response = await generateWithFallback(prompt);
 
         let textResponse = response.text;
         textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
 
-        const activityData = JSON.parse(textResponse);
+        const activityData = normalize(JSON.parse(textResponse));
+
+        if (activityData.passage.length === 0) {
+            throw new Error('استجابة غير مكتملة');
+        }
 
         cache.set(userQuery, activityData);
         res.json(activityData);
@@ -107,5 +151,5 @@ app.post('/api/generate-activity', async (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`Server is running on http://localhost:{port}`);
+    console.log(`Server is running on http://localhost:${port}`);
 });
