@@ -2,31 +2,68 @@ body {
     font-family: 'Cairo', sans-serif;
 }
 
-::-webkit-scrollbar {
-    width: 8px;
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #fdf4f0; border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: #99f6e4; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #5eead4; }
+
+/* أزرار اختيار نوع النشاط */
+.type-chip { display: block; cursor: pointer; }
+.type-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.type-chip span {
+    display: block;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 10px 6px;
+    border: 2px solid #e2e8f0;
+    border-radius: 16px;
+    background: #f8fafc;
+    color: #334155;
+    transition: all .15s;
 }
-::-webkit-scrollbar-track {
-    background: #fdf4f0;
-    border-radius: 8px;
+.type-chip:hover span { border-color: #5eead4; }
+.type-chip input:checked + span {
+    background: #ccfbf1;
+    border-color: #0d9488;
+    color: #134e4a;
 }
-::-webkit-scrollbar-thumb {
-    background: #99f6e4;
-    border-radius: 8px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #5eead4;
-}
+.type-chip input:focus-visible + span { outline: 3px solid #0d9488; outline-offset: 2px; }
 
 /* ورقة العمل */
-.ws-paper {
-    border: 2px solid #e0f2fe;
+.ws-paper { border: 2px solid #e0f2fe; }
+
+/* الخريطة الذهنية */
+.mm-wrap { position: relative; display: grid; gap: .75rem; }
+.mm-lines { display: none; }
+
+@media (min-width: 640px) {
+    .mm-wrap {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: repeat(3, minmax(0, 1fr));
+        height: 620px;
+        gap: .5rem;
+    }
+    .mm-lines {
+        display: block;
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+    }
+    .mm-wrap > *:not(.mm-lines) { position: relative; z-index: 1; }
+    .mm-center { grid-row: 2; grid-column: 2; align-self: center; justify-self: center; }
+    .mm-p1 { grid-row: 1; grid-column: 1; }
+    .mm-p2 { grid-row: 1; grid-column: 3; }
+    .mm-p3 { grid-row: 3; grid-column: 3; }
+    .mm-p4 { grid-row: 3; grid-column: 1; }
+    .mm-p5 { grid-row: 2; grid-column: 1; }
+    .mm-p6 { grid-row: 2; grid-column: 3; }
 }
 
 @media print {
-    @page {
-        size: A4 portrait;
-        margin: 8mm;
-    }
+    @page { size: A4 portrait; margin: 8mm; }
 
     html, body {
         background: #fff !important;
@@ -38,7 +75,6 @@ body {
     section:first-of-type,
     .no-print,
     button,
-    footer,
     main > section:last-of-type > div:last-child {
         display: none !important;
     }
@@ -61,7 +97,8 @@ body {
     .ws-paper {
         border: none !important;
         padding: 0 !important;
-        break-inside: avoid;
         font-size: 90%;
     }
+
+    .ws-paper > * { break-inside: avoid; }
 }
