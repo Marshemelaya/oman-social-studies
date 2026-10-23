@@ -4,18 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>مساعد الأنشطة الذكي - الدراسات الاجتماعية (المنهج العماني)</title>
-    <!-- مكتبة Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-    <!-- خط Cairo -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
-    <!-- أداة حفظ ورقة العمل كصورة -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <!-- ربط ملف الـ CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-amber-50/50 text-slate-800 min-h-screen flex flex-col">
 
-    <!-- رأس الصفحة -->
     <header class="bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-lg py-5 px-6 rounded-b-3xl mb-6">
         <div class="container mx-auto flex justify-between items-center">
             <div class="flex items-center gap-3">
@@ -26,58 +21,91 @@
                 </div>
             </div>
             <div class="hidden sm:block bg-white/20 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-white/30 shadow-sm">
-                ✨ أوراق عمل جاهزة للطباعة
+                ✨ أنشطة متنوعة لكل جزء من الدرس
             </div>
         </div>
     </header>
 
-    <!-- المحتوى الرئيسي -->
     <main class="container mx-auto px-4 flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6 pb-8">
 
-        <!-- قسم الشات -->
-        <section class="lg:col-span-3 bg-white rounded-3xl shadow-xl shadow-teal-900/5 border-2 border-teal-100 flex flex-col h-[680px] overflow-hidden">
+        <!-- نموذج الطلب -->
+        <section class="lg:col-span-4 bg-white rounded-3xl shadow-xl shadow-teal-900/5 border-2 border-teal-100 self-start overflow-hidden">
             <div class="p-4 bg-teal-50 border-b border-teal-100 flex items-center gap-2">
-                <span class="text-lg">💬</span>
-                <h2 class="font-black text-teal-900 text-sm">محادثة مساعد الأنشطة الذكي</h2>
+                <span class="text-lg">📝</span>
+                <h2 class="font-black text-teal-900 text-sm">صمّم نشاطك</h2>
             </div>
 
-            <!-- صندوق الرسائل -->
-            <div id="chatMessages" class="flex-grow p-4 overflow-y-auto space-y-4 text-sm">
-                <div class="flex items-start gap-2.5">
-                    <div class="bg-teal-600 text-white w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 font-black text-sm shadow-md shadow-teal-600/20">🤖</div>
-                    <div class="bg-teal-50 p-4 rounded-2xl rounded-tr-none text-teal-950 max-w-[85%] leading-relaxed border border-teal-100/60 font-medium">
-                        أهلاً بك يا معلمنا الفاضل! 📚 اكتب اسم الدرس أو الصف (مثال: <span class="text-teal-700 font-bold">"الصف السادس درجات الحرارة والأمطار"</span>، <span class="text-teal-700 font-bold">"الصف الثامن الأفلاج"</span>)، وسأعد لك ورقة عمل جاهزة للطباعة.
+            <form id="requestForm" class="p-4 space-y-4 text-sm" autocomplete="off">
+
+                <div>
+                    <label for="grade" class="block text-xs font-black text-slate-700 mb-1">الصف</label>
+                    <select id="grade" class="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl px-3 py-2.5 text-sm focus:border-teal-500 focus:bg-white focus:outline-none">
+                        <option>الصف الخامس</option>
+                        <option>الصف السادس</option>
+                        <option>الصف السابع</option>
+                        <option selected>الصف الثامن</option>
+                        <option>الصف التاسع</option>
+                        <option>الصف العاشر</option>
+                        <option>الصف الحادي عشر</option>
+                        <option>الصف الثاني عشر</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="lesson" class="block text-xs font-black text-slate-700 mb-1">الدرس <span class="text-rose-500">*</span></label>
+                    <input type="text" id="lesson" maxlength="150" required placeholder="مثال: الأفلاج في سلطنة عمان" class="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl px-3 py-2.5 text-sm focus:border-teal-500 focus:bg-white focus:outline-none">
+                </div>
+
+                <div>
+                    <label for="section" class="block text-xs font-black text-slate-700 mb-1">الجزء المحدد من الدرس</label>
+                    <input type="text" id="section" maxlength="200" placeholder="مثال: أنواع الأفلاج  /  فوائد الأفلاج" class="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl px-3 py-2.5 text-sm focus:border-teal-500 focus:bg-white focus:outline-none">
+                    <p class="text-[11px] text-slate-400 font-semibold mt-1">كلما كان الجزء أدق، كان النشاط أنسب له. اتركه فارغاً للدرس كاملاً.</p>
+                </div>
+
+                <div>
+                    <span class="block text-xs font-black text-slate-700 mb-1.5">نوع النشاط</span>
+                    <div class="grid grid-cols-2 gap-2" id="typeChips">
+                        <label class="type-chip"><input type="radio" name="type" value="auto" checked><span>✨ تلقائي (الأنسب)</span></label>
+                        <label class="type-chip"><input type="radio" name="type" value="tps"><span>💡 فكر – زاوج – شارك</span></label>
+                        <label class="type-chip"><input type="radio" name="type" value="brainstorm"><span>⚡ العصف الذهني</span></label>
+                        <label class="type-chip"><input type="radio" name="type" value="mindmap"><span>🕸️ الخريطة الذهنية</span></label>
+                        <label class="type-chip"><input type="radio" name="type" value="classify"><span>🗂️ تصنيف المعلومات</span></label>
+                        <label class="type-chip"><input type="radio" name="type" value="cooperative"><span>🤝 التعلم التعاوني</span></label>
                     </div>
                 </div>
-            </div>
 
-            <!-- إدخال رسالة المعلم -->
-            <div class="p-4 border-t border-teal-50 bg-white flex gap-2">
-                <input type="text" id="userInput" placeholder="اكتب اسم الدرس أو الصف هنا... ✨" class="flex-grow min-w-0 bg-slate-50 border-2 border-slate-200 rounded-2xl px-4 py-3 text-sm focus:border-teal-500 focus:bg-white focus:outline-none transition">
-                <button id="sendBtn" class="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white px-5 py-3 rounded-2xl font-black transition shadow-lg shadow-teal-600/30 flex items-center justify-center">
-                    بحث 🚀
+                <details class="bg-amber-50/60 border border-amber-200 rounded-2xl px-3 py-2">
+                    <summary class="cursor-pointer text-xs font-black text-amber-900">📖 لصق نص من الكتاب (اختياري – لدقة أعلى)</summary>
+                    <textarea id="bookText" rows="6" maxlength="6000" placeholder="انسخ هنا فقرة الجزء المطلوب من كتاب الطالب، وسيُبنى النشاط عليها فقط." class="mt-2 w-full bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-xs leading-relaxed focus:border-teal-500 focus:outline-none"></textarea>
+                </details>
+
+                <button id="sendBtn" type="submit" class="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white px-5 py-3 rounded-2xl font-black transition shadow-lg shadow-teal-600/30">
+                    إنشاء النشاط 🚀
                 </button>
-            </div>
+
+                <div id="statusBox" class="hidden text-xs font-bold rounded-2xl px-3 py-2.5 leading-relaxed" role="status"></div>
+            </form>
         </section>
 
-        <!-- قسم عرض ورقة العمل -->
-        <section class="lg:col-span-9 bg-white rounded-3xl shadow-xl shadow-teal-900/5 border-2 border-teal-100 p-4 md:p-6 flex flex-col justify-between overflow-y-auto">
+        <!-- عرض النشاط -->
+        <section class="lg:col-span-8 bg-white rounded-3xl shadow-xl shadow-teal-900/5 border-2 border-teal-100 p-4 md:p-6 flex flex-col justify-between">
             <div id="activityCard" class="space-y-4">
 
-                <!-- حالة فارغة -->
-                <div id="emptyState" class="flex flex-col items-center justify-center text-center py-40 text-slate-400">
+                <div id="emptyState" class="flex flex-col items-center justify-center text-center py-32 text-slate-400">
                     <span class="text-6xl mb-3 animate-pulse">🎨</span>
-                    <p class="text-base font-bold text-slate-600">ورقة العمل تنتظر بحثك!</p>
-                    <p class="text-xs mt-1 text-slate-400">اكتب اسم الدرس أو الصف في المحادثة لعرض ورقة العمل.</p>
+                    <p class="text-base font-bold text-slate-600">نشاطك ينتظر!</p>
+                    <p class="text-xs mt-1 text-slate-400">أدخل الدرس والجزء المطلوب، واختر نوع النشاط ثم اضغط «إنشاء النشاط».</p>
                 </div>
 
-                <!-- ورقة العمل (تظهر بعد البحث) -->
                 <div id="activityContent" class="hidden space-y-4">
                     <div class="flex flex-wrap gap-2 justify-end no-print">
-                        <button id="downloadBtn" class="bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-md">
+                        <button id="refreshBtn" type="button" class="bg-amber-100 hover:bg-amber-200 text-amber-900 px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-sm border border-amber-300">
+                            🔄 نشاط آخر
+                        </button>
+                        <button id="downloadBtn" type="button" class="bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-md">
                             ⬇️ حفظ كصورة
                         </button>
-                        <button id="printBtn" class="bg-white hover:bg-teal-50 text-teal-700 px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-md border border-teal-200">
+                        <button id="printBtn" type="button" class="bg-white hover:bg-teal-50 text-teal-700 px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-md border border-teal-200">
                             🖨️ طباعة / حفظ PDF
                         </button>
                     </div>
@@ -91,7 +119,6 @@
         </section>
     </main>
 
-    <!-- ربط الـ JavaScript -->
     <script src="script.js"></script>
 </body>
 </html>
