@@ -14,8 +14,15 @@ if (!process.env.GEMINI_API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// النماذج بالترتيب: إذا فشل الأول ينتقل للتالي (لكل نموذج حصة يومية منفصلة)
+// نماذج النص بالترتيب: إذا فشل الأول ينتقل للتالي (لكل نموذج حصة يومية منفصلة)
 const MODELS = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.1-flash-lite'];
+
+// نماذج توليد الصور (يمكن تغييرها من إعدادات Render بدون تعديل الكود: IMAGE_MODELS=اسم1,اسم2)
+const IMAGE_MODELS = (process.env.IMAGE_MODELS || 'gemini-3.1-flash-image-preview,gemini-2.5-flash-image')
+    .split(',').map(s => s.trim()).filter(Boolean);
+
+// حد أقصى لعدد الصور يومياً لحماية حسابك من الاستهلاك الزائد
+const MAX_IMAGES_PER_DAY = parseInt(process.env.MAX_IMAGES_PER_DAY || '20', 10);
 
 const TYPES = {
     tps: 'فكر - زاوج - شارك',
@@ -25,6 +32,8 @@ const TYPES = {
     cooperative: 'التعلم التعاوني'
 };
 
+const SUBJECTS = ['الجغرافيا', 'التاريخ'];
+
 /* ---------- الذاكرة المؤقتة ---------- */
 const cache = new Map();
 function cacheSet(key, value) {
@@ -32,7 +41,7 @@ function cacheSet(key, value) {
     cache.set(key, value);
 }
 
-/* ---------- الاتصال بالنموذج ---------- */
+/* ---------- الاتصال بنموذج النص ---------- */
 async function generateWithFallback(prompt) {
     let lastErr;
     for (const model of MODELS) {
@@ -109,34 +118,43 @@ const TYPE_RULES = {
     cooperative: '4 أدوار محددة، و3 إلى 4 خطوات مرتبة، و3 إلى 5 معايير تقويم قابلة للملاحظة.'
 };
 
-function buildPrompt({ grade, lesson, section, type, text }) {
+const isSenior = (grade) => /الحادي عشر|الثاني عشر|11|12/.test(grade || '');
+
+function buildPrompt({ grade, subject, lesson, section, type, text }) {
     const chosen = type !== 'auto';
     const typeBlock = chosen
         ? `نوع النشاط المطلوب: "${TYPES[type]}" فقط.\nقاعدة هذا النوع: ${TYPE_RULES[type]}`
         : `اختر نوعاً واحداً فقط من الأنواع الخمسة التالية هو الأنسب لطبيعة هذا الجزء (مفاهيم وفئات ← classify، موضوع متشعب ← mindmap، سؤال مفتوح للتفكير ← brainstorm، مهمة أو مشكلة ← cooperative، نص للتحليل والاستنتاج ← tps)، وضع قيمته في الحقل "type"، وأجب بالبنية الخاصة بهذا النوع فقط.\nقواعد الأنواع:\n${Object.entries(TYPE_RULES).map(([k, v]) => `- ${k}: ${v}`).join('\n')}`;
 
-    const schemaText = chosen
-        ? SCHEMAS[type]
-        : Object.values(SCHEMAS).join(',\n  ');
+    const schemaText = chosen ? SCHEMAS[type] : Object.values(SCHEMAS).join(',\n  ');
 
     const sourceBlock = text
         ? `\nنص من كتاب الطالب (اعتمد عليه حصراً ولا تضف معلومات من خارجه):\n"""\n${text}\n"""\n`
-        : '\nلا يوجد نص من الكتاب: استخدم معلومات دقيقة ومعروفة فقط، ولا تخترع أرقاماً أو أسماء أو تواريخ غير مؤكدة.\n';
+        : '\nلا يوجد نص من الكتاب: استخدم معلومات دقيقة ومعروفة فقط، ولا تخترع أرقاماً أو أسماء أو تواريخ أو أحداثاً غير مؤكدة، ولا تذكر أرقام صفحات أو وحدات من الكتاب.\n';
 
-    return `أنت خبير تربوي في مناهج الدراسات الاجتماعية في سلطنة عمان (الصفوف من الخامس إلى الثاني عشر: جغرافيا وتاريخ ودراسات عالمية).
+    const seniorRule = isSenior(grade)
+        ? `\n- هذا صف من المرحلة الثانوية (الحادي عشر/الثاني عشر): ارفع مستوى الأسئلة نحو التحليل والمقارنة والتفسير والتقويم والاستدلال وربط الأسباب بالنتائج، وتجنب الأسئلة المباشرة التي تُجاب بنقل جملة من الكتاب.`
+        : '';
+
+    const subjectLine = subject
+        ? `- المادة: ${subject} (التزم بمنهج مادة ${subject} في سلطنة عمان لهذا الصف)`
+        : '- المادة: الدراسات الاجتماعية (حدد الفرع جغرافيا أو تاريخ حسب الدرس)';
+
+    return `أنت خبير تربوي في مناهج الدراسات الاجتماعية في سلطنة عمان (الصفوف من الخامس إلى العاشر: الدراسات الاجتماعية بفرعيها الجغرافيا والتاريخ، والصفان الحادي عشر والثاني عشر: مادتا الجغرافيا والتاريخ).
 
 بيانات الطلب:
 - الصف: ${grade || 'غير محدد'}
+${subjectLine}
 - الدرس: ${lesson}
 - الجزء المحدد من الدرس: ${section || 'الدرس كاملاً'}
 ${sourceBlock}
 مهمتك: أنشئ نشاطاً صفياً جاهزاً للطباعة يخدم "${section || lesson}" تحديداً.
 قواعد صارمة:
 - كل الأسئلة والأمثلة والعناصر مأخوذة من الجزء المحدد فقط، ولا تتناول بقية الدرس.
-- المستوى اللغوي والمعرفي مناسب للصف المذكور، ومرتبط ببيئة سلطنة عمان حيثما أمكن.
+- المستوى اللغوي والمعرفي مناسب للصف المذكور، ومرتبط ببيئة سلطنة عمان حيثما أمكن.${seniorRule}
 - ${typeBlock}
 
-أجب بصيغة JSON صحيحة تماماً وباللغة العربية فقط وبدون أي رموز Markdown، وبهذه البنية:
+أجب بصيغة JSON صحيحة تماماً وباللغة العربية فقط (عدا حقل illustrationPrompts فبالإنجليزية) وبدون أي رموز Markdown، وبهذه البنية:
 {
   "type": "${chosen ? type : 'أحد: tps / brainstorm / mindmap / classify / cooperative'}",
   "title": "عنوان النشاط مرتبط بالجزء المحدد",
@@ -144,6 +162,7 @@ ${sourceBlock}
   "time": "مدة مقترحة مثل: 15 دقيقة",
   "iconsStart": "رمز تعبيري واحد أو اثنان مناسبان للموضوع",
   "iconsEnd": "رمز تعبيري آخر مناسب",
+  "illustrationPrompts": ["وصف إنجليزي قصير لرسمة بسيطة تناسب الجزء المحدد، بدون أشخاص وبدون نصوص", "وصف إنجليزي لرسمة ثانية مختلفة"],
   "teacherRole": "دور المعلم في هذا النشاط في جملتين",
   ${schemaText}
 }`;
@@ -222,18 +241,20 @@ function normalize(d, requested, meta) {
         typeName: TYPES[type],
         title: str(d.title, meta.section || meta.lesson),
         grade: meta.grade,
+        subject: meta.subject,
         lesson: meta.lesson,
         section: meta.section,
         objective: str(d.objective),
         time: str(d.time),
         iconsStart: str(d.iconsStart, '📚'),
         iconsEnd: str(d.iconsEnd, '🇴🇲'),
+        illustrationPrompts: strs(d.illustrationPrompts).slice(0, 2).map(p => p.slice(0, 300)),
         teacherRole: str(d.teacherRole),
         body
     };
 }
 
-/* ---------- المسار الرئيسي ---------- */
+/* ---------- مسار توليد النشاط ---------- */
 const clip = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 
 app.post('/api/generate-activity', async (req, res) => {
@@ -241,6 +262,7 @@ app.post('/api/generate-activity', async (req, res) => {
         const b = req.body || {};
         const meta = {
             grade: clip(b.grade, 40),
+            subject: SUBJECTS.includes(b.subject) ? b.subject : '',
             lesson: clip(b.lesson, 150),
             section: clip(b.section, 200)
         };
@@ -252,7 +274,7 @@ app.post('/api/generate-activity', async (req, res) => {
             return res.status(400).json({ error: 'اكتب اسم الدرس أولاً.' });
         }
 
-        const key = JSON.stringify([meta.grade, meta.lesson, meta.section, type, text]);
+        const key = JSON.stringify([meta.grade, meta.subject, meta.lesson, meta.section, type, text]);
         if (!refresh && cache.has(key)) {
             return res.json(cache.get(key));
         }
@@ -276,6 +298,84 @@ app.post('/api/generate-activity', async (req, res) => {
                     ? 'الخدمة مشغولة حالياً، حاول مرة أخرى بعد قليل.'
                     : 'تعذر إنشاء النشاط هذه المرة، حاول مرة أخرى.'
         });
+    }
+});
+
+/* ---------- مسار الرسومات بالذكاء الاصطناعي ---------- */
+const IMG_STYLE = 'Cute friendly flat vector illustration for a school worksheet, bright cheerful colors, soft shapes, a single centered subject on a plain white background, no text, no letters, no numbers, no watermark, no people or faces. Subject: ';
+
+const imgCache = new Map();
+let imgDay = '';
+let imgCount = 0;
+
+function takeImageBudget(n) {
+    const today = new Date().toISOString().slice(0, 10);
+    if (today !== imgDay) { imgDay = today; imgCount = 0; }
+    if (imgCount + n > MAX_IMAGES_PER_DAY) return false;
+    imgCount += n;
+    return true;
+}
+
+async function generateImage(prompt) {
+    let lastErr = new Error('no image models');
+    for (const model of IMAGE_MODELS) {
+        try {
+            const r = await ai.models.generateContent({
+                model,
+                contents: IMG_STYLE + prompt,
+                config: { responseModalities: ['TEXT', 'IMAGE'] }
+            });
+            const parts = (r.candidates && r.candidates[0] && r.candidates[0].content && r.candidates[0].content.parts) || [];
+            const img = parts.find(p => p.inlineData && p.inlineData.data);
+            if (img) {
+                return `data:${img.inlineData.mimeType || 'image/png'};base64,${img.inlineData.data}`;
+            }
+            lastErr = new Error('لم يرجع النموذج صورة');
+        } catch (err) {
+            lastErr = err;
+            console.error(`فشل توليد الصورة بالنموذج ${model}:`, err.status || err.message);
+        }
+    }
+    throw lastErr;
+}
+
+app.post('/api/generate-illustrations', async (req, res) => {
+    try {
+        const raw = Array.isArray(req.body && req.body.prompts) ? req.body.prompts : [];
+        const prompts = raw.filter(p => typeof p === 'string' && p.trim()).slice(0, 2).map(p => p.trim().slice(0, 300));
+
+        if (!prompts.length) {
+            return res.status(400).json({ error: 'لا يوجد وصف للرسم.' });
+        }
+
+        const todo = prompts.filter(p => !imgCache.has(p));
+        if (todo.length && !takeImageBudget(todo.length)) {
+            return res.status(429).json({ error: 'تم الوصول إلى الحد اليومي لعدد الرسومات، جرّب غداً.' });
+        }
+
+        const results = await Promise.allSettled(prompts.map(async (p) => {
+            if (imgCache.has(p)) return imgCache.get(p);
+            const url = await generateImage(p);
+            if (imgCache.size >= 30) imgCache.delete(imgCache.keys().next().value);
+            imgCache.set(p, url);
+            return url;
+        }));
+
+        const failed = results.filter(r => r.status === 'rejected').length;
+        const uncachedFailed = Math.min(failed, todo.length);
+        imgCount = Math.max(0, imgCount - uncachedFailed); // إرجاع المحاولات الفاشلة من العدّاد
+
+        const images = results.map(r => (r.status === 'fulfilled' ? r.value : null));
+        if (images.every(i => !i)) {
+            return res.status(503).json({
+                error: 'تعذر توليد الرسومات الآن. قد لا يكون توليد الصور متاحاً في حسابك الحالي، وستبقى الرموز العادية.'
+            });
+        }
+        res.json({ images });
+
+    } catch (error) {
+        console.error('خطأ في الرسومات:', error);
+        res.status(500).json({ error: 'تعذر توليد الرسومات، حاول مرة أخرى.' });
     }
 });
 
