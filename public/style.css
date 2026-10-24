@@ -33,11 +33,30 @@ body {
 /* ورقة العمل */
 .ws-paper { border: 2px solid #e0f2fe; }
 
+/* شبكات ورقة العمل: تتحول إلى أعمدة على الشاشات العريضة وعند الطباعة الأفقية */
+.ws-g3, .ws-g2, .ws-ideas, .ws-roles, .ws-cats {
+    display: grid;
+    gap: 1rem;
+    align-items: start;
+}
+.ws-g3, .ws-g2, .ws-cats { grid-template-columns: minmax(0, 1fr); }
+.ws-ideas, .ws-roles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+
+@media (min-width: 640px), print {
+    .ws-g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ws-ideas { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .ws-cats { grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); }
+}
+@media (min-width: 1024px), print {
+    .ws-g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .ws-roles { grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); }
+}
+
 /* الخريطة الذهنية */
 .mm-wrap { position: relative; display: grid; gap: .75rem; }
 .mm-lines { display: none; }
 
-@media (min-width: 640px) {
+@media (min-width: 640px), print {
     .mm-wrap {
         grid-template-columns: repeat(3, minmax(0, 1fr));
         grid-template-rows: repeat(3, minmax(0, 1fr));
@@ -62,8 +81,9 @@ body {
     .mm-p6 { grid-row: 2; grid-column: 3; }
 }
 
+/* ===== الطباعة: A4 أفقي ===== */
 @media print {
-    @page { size: A4 portrait; margin: 8mm; }
+    @page { size: A4 landscape; margin: 8mm; }
 
     html, body {
         background: #fff !important;
@@ -97,8 +117,13 @@ body {
     .ws-paper {
         border: none !important;
         padding: 0 !important;
-        font-size: 90%;
+        zoom: 0.9;
     }
 
-    .ws-paper > * { break-inside: avoid; }
+    .ws-paper > *,
+    .ws-g3 > *,
+    .ws-cats > *,
+    .ws-roles > * { break-inside: avoid; }
+
+    .mm-wrap { height: 470px; }
 }
