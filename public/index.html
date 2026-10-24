@@ -17,7 +17,7 @@
                 <span class="text-4xl animate-bounce">🌟</span>
                 <div>
                     <h1 class="text-xl md:text-2xl font-black">مساعد الأنشطة الذكي 🇴🇲</h1>
-                    <p class="text-teal-100 text-xs font-semibold mt-0.5">مادة الدراسات الاجتماعية • المنهج العماني (الصفوف 5 - 12)</p>
+                    <p class="text-teal-100 text-xs font-semibold mt-0.5">الدراسات الاجتماعية (5 - 10) • الجغرافيا والتاريخ (11 - 12) • المنهج العماني</p>
                 </div>
             </div>
             <div class="hidden sm:block bg-white/20 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-white/30 shadow-sm">
@@ -37,19 +37,30 @@
 
             <form id="requestForm" class="p-4 space-y-4 text-sm" autocomplete="off">
 
-                <div>
-                    <label for="grade" class="block text-xs font-black text-slate-700 mb-1">الصف</label>
-                    <select id="grade" class="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl px-3 py-2.5 text-sm focus:border-teal-500 focus:bg-white focus:outline-none">
-                        <option>الصف الخامس</option>
-                        <option>الصف السادس</option>
-                        <option>الصف السابع</option>
-                        <option selected>الصف الثامن</option>
-                        <option>الصف التاسع</option>
-                        <option>الصف العاشر</option>
-                        <option>الصف الحادي عشر</option>
-                        <option>الصف الثاني عشر</option>
-                    </select>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="grade" class="block text-xs font-black text-slate-700 mb-1">الصف</label>
+                        <select id="grade" class="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl px-3 py-2.5 text-sm focus:border-teal-500 focus:bg-white focus:outline-none">
+                            <option>الصف الخامس</option>
+                            <option>الصف السادس</option>
+                            <option>الصف السابع</option>
+                            <option selected>الصف الثامن</option>
+                            <option>الصف التاسع</option>
+                            <option>الصف العاشر</option>
+                            <option>الصف الحادي عشر</option>
+                            <option>الصف الثاني عشر</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="subject" class="block text-xs font-black text-slate-700 mb-1">المادة</label>
+                        <select id="subject" class="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl px-3 py-2.5 text-sm focus:border-teal-500 focus:bg-white focus:outline-none">
+                            <option value="">حسب الدرس</option>
+                            <option value="الجغرافيا">الجغرافيا</option>
+                            <option value="التاريخ">التاريخ</option>
+                        </select>
+                    </div>
                 </div>
+                <p id="subjectHint" class="hidden text-[11px] text-amber-700 font-bold -mt-2">للصفين الحادي عشر والثاني عشر اختر الجغرافيا أو التاريخ لنتيجة أدق.</p>
 
                 <div>
                     <label for="lesson" class="block text-xs font-black text-slate-700 mb-1">الدرس <span class="text-rose-500">*</span></label>
@@ -85,6 +96,32 @@
 
                 <div id="statusBox" class="hidden text-xs font-bold rounded-2xl px-3 py-2.5 leading-relaxed" role="status"></div>
             </form>
+
+            <!-- بيانات المعدّ: تُحفظ في متصفح المعلم فقط ولا تُرسل لأي خادم -->
+            <details class="mx-4 mb-4 bg-violet-50/60 border border-violet-200 rounded-2xl px-3 py-2">
+                <summary class="cursor-pointer text-xs font-black text-violet-900">👤 بيانات المعدّ (تظهر أسفل الورقة)</summary>
+                <div class="mt-3 space-y-3 text-sm">
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="creditPrefix" class="bg-white border-2 border-slate-200 rounded-xl px-2 py-2 text-xs focus:border-violet-500 focus:outline-none">
+                            <option value="إعداد الأستاذ:">إعداد الأستاذ:</option>
+                            <option value="إعداد الأستاذة:">إعداد الأستاذة:</option>
+                            <option value="إعداد:">إعداد:</option>
+                        </select>
+                        <input type="text" id="creditName" maxlength="60" placeholder="الاسم" class="bg-white border-2 border-slate-200 rounded-xl px-2 py-2 text-xs focus:border-violet-500 focus:outline-none">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div id="creditPreview" class="w-14 h-14 rounded-full border-2 border-dashed border-violet-300 bg-white flex items-center justify-center text-[10px] text-slate-400 font-bold overflow-hidden shrink-0">صورة</div>
+                        <div class="flex flex-col gap-1.5 min-w-0">
+                            <label class="cursor-pointer bg-white hover:bg-violet-100 border border-violet-300 text-violet-800 text-xs font-black rounded-xl px-3 py-1.5 text-center">
+                                اختيار صورة
+                                <input type="file" id="creditPhoto" accept="image/*" class="hidden">
+                            </label>
+                            <button type="button" id="creditClear" class="text-[11px] font-bold text-rose-600 hover:underline text-right">حذف الصورة والاسم</button>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-violet-800/80 font-semibold leading-relaxed">🔒 تُحفظ هذه البيانات داخل متصفحك على هذا الجهاز فقط، ولا تُرفع إلى الموقع ولا إلى أي خادم. ستظهر على الورقة عند الطباعة أو الحفظ كصورة.</p>
+                </div>
+            </details>
         </section>
 
         <!-- عرض النشاط -->
@@ -99,14 +136,17 @@
 
                 <div id="activityContent" class="hidden space-y-4">
                     <div class="flex flex-wrap gap-2 justify-end no-print">
-                        <button id="refreshBtn" type="button" class="bg-amber-100 hover:bg-amber-200 text-amber-900 px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-sm border border-amber-300">
+                        <button id="refreshBtn" type="button" class="bg-amber-100 hover:bg-amber-200 disabled:opacity-50 text-amber-900 px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-sm border border-amber-300">
                             🔄 نشاط آخر
+                        </button>
+                        <button id="illustrateBtn" type="button" class="bg-violet-100 hover:bg-violet-200 disabled:opacity-50 text-violet-900 px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-sm border border-violet-300">
+                            🎨 رسومات بالذكاء الاصطناعي
                         </button>
                         <button id="downloadBtn" type="button" class="bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-md">
                             ⬇️ حفظ كصورة
                         </button>
                         <button id="printBtn" type="button" class="bg-white hover:bg-teal-50 text-teal-700 px-4 py-2.5 rounded-2xl text-xs font-black transition shadow-md border border-teal-200">
-                            🖨️ طباعة / حفظ PDF
+                            🖨️ طباعة (أفقي) / PDF
                         </button>
                     </div>
                     <div id="worksheet"></div>
@@ -114,7 +154,7 @@
             </div>
 
             <div class="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-400 font-bold">
-                منصة مساعد الأنشطة الذكي • مادة الدراسات الاجتماعية • سلطنة عمان &copy; 2026
+                منصة مساعد الأنشطة الذكي • سلطنة عمان &copy; 2026
             </div>
         </section>
     </main>
