@@ -1,6 +1,87 @@
 let isLoading = false;
 let lastRequest = null;
+let lastActivity = null;
 let lastTitle = 'activity';
+
+/* ---------- بيانات المعدّ (تُحفظ في متصفح المعلم فقط) ---------- */
+
+const CREDIT_KEY = 'oman-activity-credit-v1';
+let credit = { prefix: 'إعداد الأستاذ:', name: '', photo: '' };
+
+function loadCredit() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(CREDIT_KEY) || 'null');
+        if (saved && typeof saved === 'object') {
+            credit.prefix = typeof saved.prefix === 'string' ? saved.prefix : credit.prefix;
+            credit.name = typeof saved.name === 'string' ? saved.name.slice(0, 60) : '';
+            credit.photo = (typeof saved.photo === 'string' && /^data:image\/(jpeg|png);base64,/.test(saved.photo)) ? saved.photo : '';
+        }
+    } catch (_) { /* التخزين غير متاح: نكمل بدون حفظ */ }
+}
+
+function saveCredit() {
+    try { localStorage.setItem(CREDIT_KEY, JSON.stringify(credit)); } catch (_) { /* ignore */ }
+}
+
+function updateCreditPreview() {
+    const box = document.getElementById('creditPreview');
+    if (credit.photo) {
+        box.innerHTML = `<img src="${credit.photo}" alt="" class="w-full h-full object-cover">`;
+    } else {
+        box.textContent = 'صورة';
+    }
+}
+
+function creditChanged() {
+    saveCredit();
+    updateCreditPreview();
+    if (lastActivity) showActivity(lastActivity, false);
+}
+
+function loadImageFromFile(file) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('تعذر قراءة الصورة')); };
+        img.src = url;
+    });
+}
+
+// قص الصورة إلى مربع صغير (240px) حتى تبقى خفيفة وتُحفظ بسهولة
+async function squarePhotoFromFile(file, size = 240) {
+    const img = await loadImageFromFile(file);
+    const s = Math.min(img.width, img.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, size, size);
+    ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+    return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+// تصغير الرسومات المولدة لتخفيف الحجم
+function shrinkDataUrl(dataUrl, max = 360) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const k = Math.min(1, max / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * k);
+            canvas.height = Math.round(img.height * k);
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.9));
+        };
+        img.onerror = () => reject(new Error('تعذر قراءة الرسم'));
+        img.src = dataUrl;
+    });
+}
+
+/* ---------- التهيئة ---------- */
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('requestForm').addEventListener('submit', (e) => {
@@ -8,8 +89,56 @@ document.addEventListener('DOMContentLoaded', () => {
         submitRequest(false);
     });
     document.getElementById('refreshBtn').addEventListener('click', () => submitRequest(true));
+    document.getElementById('illustrateBtn').addEventListener('click', illustrate);
     document.getElementById('printBtn').addEventListener('click', () => window.print());
     document.getElementById('downloadBtn').addEventListener('click', downloadWorksheetImage);
+
+    // تلميح المادة للصفين 11 و12
+    const grade = document.getElementById('grade');
+    const subject = document.getElementById('subject');
+    const hint = document.getElementById('subjectHint');
+    const updateHint = () => {
+        const senior = /الحادي عشر|الثاني عشر/.test(grade.value);
+        hint.classList.toggle('hidden', !(senior && !subject.value));
+    };
+    grade.addEventListener('change', updateHint);
+    subject.addEventListener('change', updateHint);
+    updateHint();
+
+    // بيانات المعدّ
+    loadCredit();
+    const prefixEl = document.getElementById('creditPrefix');
+    const nameEl = document.getElementById('creditName');
+    prefixEl.value = credit.prefix;
+    if (prefixEl.value !== credit.prefix) prefixEl.selectedIndex = 0;
+    nameEl.value = credit.name;
+    updateCreditPreview();
+
+    prefixEl.addEventListener('change', () => { credit.prefix = prefixEl.value; creditChanged(); });
+    nameEl.addEventListener('input', () => { credit.name = nameEl.value.trim().slice(0, 60); creditChanged(); });
+
+    document.getElementById('creditPhoto').addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+        if (!file.type.startsWith('image/') || file.size > 10 * 1024 * 1024) {
+            setStatus('اختر صورة صالحة (حتى 10 ميجابايت).', 'error');
+            return;
+        }
+        try {
+            credit.photo = await squarePhotoFromFile(file);
+            creditChanged();
+        } catch (err) {
+            setStatus(err.message, 'error');
+        }
+    });
+
+    document.getElementById('creditClear').addEventListener('click', () => {
+        credit.name = '';
+        credit.photo = '';
+        nameEl.value = '';
+        creditChanged();
+    });
 });
 
 /* ---------- الطلب ---------- */
@@ -18,6 +147,7 @@ function readForm() {
     const checked = document.querySelector('input[name="type"]:checked');
     return {
         grade: document.getElementById('grade').value,
+        subject: document.getElementById('subject').value,
         lesson: document.getElementById('lesson').value.trim(),
         section: document.getElementById('section').value.trim(),
         type: checked ? checked.value : 'auto',
@@ -37,6 +167,14 @@ function setStatus(message, kind) {
     box.textContent = message;
 }
 
+function setBusy(busy) {
+    isLoading = busy;
+    ['sendBtn', 'refreshBtn', 'illustrateBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = busy;
+    });
+}
+
 async function submitRequest(refresh) {
     if (isLoading) return;
 
@@ -48,11 +186,7 @@ async function submitRequest(refresh) {
     }
     lastRequest = req;
 
-    isLoading = true;
-    const sendBtn = document.getElementById('sendBtn');
-    const refreshBtn = document.getElementById('refreshBtn');
-    sendBtn.disabled = true;
-    refreshBtn.disabled = true;
+    setBusy(true);
     setStatus('جاري تجهيز النشاط... ⏳ قد يستغرق ذلك بضع ثوانٍ', 'loading');
 
     try {
@@ -66,15 +200,49 @@ async function submitRequest(refresh) {
         try { data = await response.json(); } catch (_) { /* ignore */ }
         if (!response.ok || data.error) throw new Error(data.error || 'تعذر الاتصال بالخادم');
 
-        renderActivity(data);
+        showActivity(data, true);
         setStatus(`تم إنشاء نشاط «${data.typeName}» 🇴🇲`, 'ok');
     } catch (err) {
         console.error(err);
         setStatus(err.message, 'error');
     } finally {
-        isLoading = false;
-        sendBtn.disabled = false;
-        refreshBtn.disabled = false;
+        setBusy(false);
+    }
+}
+
+/* ---------- الرسومات بالذكاء الاصطناعي ---------- */
+
+async function illustrate() {
+    if (isLoading || !lastActivity) return;
+    const a = lastActivity;
+    const prompts = (a.illustrationPrompts && a.illustrationPrompts.length)
+        ? a.illustrationPrompts
+        : [`${a.section || a.lesson}, Oman, educational`];
+
+    setBusy(true);
+    setStatus('جاري رسم الصور... 🎨 قد يستغرق ذلك نصف دقيقة', 'loading');
+
+    try {
+        const response = await fetch('/api/generate-illustrations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompts })
+        });
+
+        let data = {};
+        try { data = await response.json(); } catch (_) { /* ignore */ }
+        if (!response.ok || data.error) throw new Error(data.error || 'تعذر توليد الرسومات');
+
+        a.illustrations = await Promise.all(
+            data.images.map(u => (u ? shrinkDataUrl(u).catch(() => null) : null))
+        );
+        showActivity(a, false);
+        setStatus('تمت إضافة الرسومات 🎨', 'ok');
+    } catch (err) {
+        console.error(err);
+        setStatus(err.message, 'error');
+    } finally {
+        setBusy(false);
     }
 }
 
@@ -112,18 +280,39 @@ function shuffle(arr) {
 
 /* ---------- الغلاف المشترك ---------- */
 
+function iconSlot(a, i) {
+    const url = a.illustrations && a.illustrations[i];
+    if (typeof url === 'string' && /^data:image\//.test(url)) {
+        return `<img src="${url}" alt="" class="w-20 h-20 md:w-28 md:h-28 object-contain rounded-2xl shrink-0">`;
+    }
+    return `<div class="text-4xl md:text-6xl shrink-0 select-none" aria-hidden="true">${esc(i === 0 ? a.iconsStart : a.iconsEnd)}</div>`;
+}
+
+function creditFooter() {
+    if (!credit.name && !credit.photo) return '';
+    const label = credit.name ? `${credit.prefix} ${credit.name}` : '';
+    return `
+        <div class="flex items-center justify-between gap-3 pt-3 border-t-2 border-dashed border-slate-200">
+            <div class="flex items-center gap-3">
+                ${credit.photo ? `<img src="${credit.photo}" alt="" class="w-14 h-14 rounded-full object-cover border-2 border-teal-500 shadow">` : ''}
+                ${label ? `<p class="text-sm font-black text-slate-700">${esc(label)}</p>` : ''}
+            </div>
+            <p class="text-[11px] font-bold text-slate-400">مساعد الأنشطة الذكي 🇴🇲</p>
+        </div>`;
+}
+
 function shell(a, inner) {
-    const meta = [a.grade, a.lesson, a.section].filter(Boolean).join(' • ');
+    const meta = [a.grade, a.subject, a.lesson, a.section].filter(Boolean).join(' • ');
     return `
     <div id="worksheetPaper" class="ws-paper bg-white rounded-3xl p-5 md:p-6 space-y-5 text-slate-800" dir="rtl">
         <div class="flex items-center justify-between gap-3">
-            <div class="text-4xl md:text-6xl shrink-0 select-none" aria-hidden="true">${esc(a.iconsStart)}</div>
+            ${iconSlot(a, 0)}
             <div class="flex-1 text-center bg-sky-50 border-4 border-sky-400 rounded-[2.5rem] px-5 py-4">
                 <span class="inline-block bg-sky-600 text-white text-[11px] font-black px-3 py-0.5 rounded-full mb-1.5">${esc(a.typeName)}</span>
                 <h2 class="text-xl md:text-3xl font-black text-sky-950 leading-snug">${esc(a.title)}</h2>
                 ${meta ? `<p class="text-xs font-bold text-sky-700 mt-1">${esc(meta)}</p>` : ''}
             </div>
-            <div class="text-4xl md:text-6xl shrink-0 select-none" aria-hidden="true">${esc(a.iconsEnd)}</div>
+            ${iconSlot(a, 1)}
         </div>
 
         ${(a.objective || a.time) ? `
@@ -139,6 +328,8 @@ function shell(a, inner) {
             ${tag('👨‍🏫 دور المعلم', 'bg-teal-600')}
             <p class="text-xs font-medium leading-relaxed">${esc(a.teacherRole)}</p>
         </div>` : ''}
+
+        ${creditFooter()}
     </div>`;
 }
 
@@ -167,7 +358,7 @@ function renderTps(b) {
             <div class="text-xs font-bold text-slate-800">في مجموعات استنتاجات حول النص</div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        <div class="ws-g3">
             <div class="relative border-2 border-emerald-500 bg-emerald-50/50 rounded-3xl px-4 pt-7 pb-4">
                 ${tag('أولاً: فكر 🧠', 'bg-emerald-600')}
                 <p class="text-xs font-bold leading-relaxed mb-2">${esc(b.thinkInstruction)}</p>
@@ -236,7 +427,7 @@ function renderBrainstorm(b) {
 
         <div class="relative border-2 border-amber-400 bg-white rounded-3xl px-4 pt-7 pb-4">
             ${tag('🧠 أفكار المجموعة', 'bg-amber-500')}
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">${slots}</div>
+            <div class="ws-ideas">${slots}</div>
         </div>
 
         <div class="relative border-2 border-emerald-400 bg-emerald-50/50 rounded-3xl px-4 pt-7 pb-4">
@@ -250,12 +441,10 @@ function renderBrainstorm(b) {
 
 const MM_COLORS = ['emerald', 'sky', 'violet', 'rose', 'amber', 'teal'];
 const MM_HEX = ['#059669', '#0284c7', '#7c3aed', '#e11d48', '#d97706', '#0d9488'];
-// مركز كل خلية كنسبة مئوية (الصف الأول يمين الصفحة لأن الاتجاه RTL)
+// مركز كل خلية كنسبة مئوية (العمود الأول يمين الصفحة لأن الاتجاه RTL)
 const MM_POS = [[83.3, 16.7], [16.7, 16.7], [16.7, 83.3], [83.3, 83.3], [83.3, 50], [16.7, 50]];
 
 function renderMindmap(b) {
-    const n = b.branches.length;
-
     const lines = b.branches.map((_, i) =>
         `<line x1="50" y1="50" x2="${MM_POS[i][0]}" y2="${MM_POS[i][1]}" stroke="${MM_HEX[i]}" stroke-width="4" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`).join('');
 
@@ -295,7 +484,6 @@ function renderMindmap(b) {
 
 /* ---------- 4) تصنيف المعلومات ---------- */
 
-const CLS_GRID = { 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3', 4: 'sm:grid-cols-4' };
 const CLS_COLORS = ['emerald', 'sky', 'violet', 'rose'];
 
 function renderClassify(b) {
@@ -323,7 +511,7 @@ function renderClassify(b) {
             <div class="flex flex-wrap gap-2">${bank}</div>
         </div>
 
-        <div class="grid grid-cols-1 ${CLS_GRID[n] || 'sm:grid-cols-2'} gap-3 items-start">${cols}</div>
+        <div class="ws-cats" style="--n:${n}">${cols}</div>
 
         ${b.reflection ? `
         <div class="relative border-2 border-rose-400 bg-rose-50/60 rounded-3xl px-4 pt-7 pb-4">
@@ -379,12 +567,12 @@ function renderCooperative(b) {
 
         <div class="relative border-2 border-violet-400 bg-violet-50/40 rounded-3xl px-4 pt-7 pb-4">
             ${tag('👥 أدوار أعضاء المجموعة', 'bg-violet-600')}
-            <div class="grid grid-cols-2 gap-3">${roles}</div>
+            <div class="ws-roles" style="--n:${Math.min(b.roles.length, 5)}">${roles}</div>
         </div>
 
         <div class="relative border-2 border-sky-400 bg-sky-50/40 rounded-3xl px-4 pt-7 pb-4">
             ${tag('🛠️ خطوات العمل', 'bg-sky-600')}
-            <div class="space-y-2">${steps}</div>
+            <div class="ws-g2">${steps}</div>
         </div>
 
         ${b.product ? `
@@ -411,7 +599,7 @@ function renderCooperative(b) {
 
 /* ---------- العرض ---------- */
 
-function renderActivity(a) {
+function showActivity(a, scroll) {
     const renderers = {
         tps: renderTps,
         brainstorm: renderBrainstorm,
@@ -421,16 +609,18 @@ function renderActivity(a) {
     };
     const render = renderers[a.type] || renderTps;
 
+    lastActivity = a;
+    lastTitle = a.title || 'activity';
+
     document.getElementById('emptyState').classList.add('hidden');
     document.getElementById('activityContent').classList.remove('hidden');
 
-    lastTitle = a.title || 'activity';
     const worksheet = document.getElementById('worksheet');
     worksheet.innerHTML = shell(a, render(a.body)) + (a.type === 'classify' ? classifyAnswerKey(a.body) : '');
-    worksheet.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (scroll) worksheet.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-/* ---------- حفظ كصورة ---------- */
+/* ---------- حفظ كصورة (بعرض أفقي ثابت) ---------- */
 
 async function downloadWorksheetImage() {
     const paper = document.getElementById('worksheetPaper');
@@ -446,9 +636,30 @@ async function downloadWorksheetImage() {
     btn.textContent = 'جاري التجهيز... ⏳';
     btn.disabled = true;
 
+    // نسخة خارج الشاشة بعرض 1400px لتخرج الصورة بشكل أفقي ثابت مهما كان حجم الشاشة
+    const wrap = document.createElement('div');
+    wrap.id = 'exportWrap';
+    wrap.style.cssText = 'position:fixed;left:-20000px;top:0;width:1400px;background:#fff;';
+    const clone = paper.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.style.width = '1400px';
+    wrap.appendChild(clone);
+    document.body.appendChild(wrap);
+
     try {
         if (document.fonts && document.fonts.ready) await document.fonts.ready;
-        const canvas = await html2canvas(paper, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+        const canvas = await html2canvas(clone, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            windowWidth: 1400,
+            scrollX: 0,
+            scrollY: 0,
+            onclone: (doc) => {
+                const w = doc.getElementById('exportWrap');
+                if (w) { w.style.position = 'absolute'; w.style.left = '0'; w.style.top = '0'; }
+            }
+        });
         const link = document.createElement('a');
         link.download = `${lastTitle.replace(/[\\/:*?"<>|]/g, '').trim() || 'activity'}.png`;
         link.href = canvas.toDataURL('image/png');
@@ -457,6 +668,7 @@ async function downloadWorksheetImage() {
         console.error(err);
         alert('تعذر حفظ الصورة. استخدم زر الطباعة ثم اختر "حفظ كملف PDF".');
     } finally {
+        wrap.remove();
         btn.textContent = original;
         btn.disabled = false;
     }
